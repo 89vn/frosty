@@ -1,0 +1,327 @@
+local TS=game:GetService("TweenService")
+local UserInput=game:GetService("UserInputService")
+
+local Lib={}
+
+local function createLabel(text,parent,size,pos,font,scaled)
+	local l=Instance.new("TextLabel")
+	l.BackgroundTransparency=1
+	l.TextColor3=Color3.new(0,0,0)
+	l.Font=font or Enum.Font.Code
+	l.TextScaled=scaled or false
+	l.TextWrapped=true
+	l.Text=text
+	l.Size=size or UDim2.new(0,150,0,25)
+	l.Position=pos or UDim2.new(0,0,0,0)
+	l.Parent=parent
+	return l
+end
+
+local function tween(obj,props,time)
+	TS:Create(obj,TweenInfo.new(time or 0.3,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),props):Play()
+end
+
+local function fadeIn(gui)
+	gui.Visible=true
+	gui.BackgroundTransparency=1
+	tween(gui,{BackgroundTransparency=0.3},0.4)
+end
+
+local function fadeOut(gui)
+	tween(gui,{BackgroundTransparency=1},0.3)
+	task.delay(0.3,function() gui.Visible=false end)
+end
+
+function Lib.new(title)
+	local gui=Instance.new("ScreenGui")
+	gui.Name="OracleUILib"
+	gui.IgnoreGuiInset=true
+	gui.ResetOnSpawn=false
+	gui.Parent=game:GetService("CoreGui")
+
+	local bg=Instance.new("Frame",gui)
+	bg.Size=UDim2.new(0,350,0,450)
+	bg.Position=UDim2.new(0.5,0,0.5,0)
+	bg.AnchorPoint=Vector2.new(0.5,0.5)
+	bg.BackgroundColor3=Color3.new(1,1,1)
+	bg.BackgroundTransparency=0.3
+	bg.BorderSizePixel=0
+	bg.ClipsDescendants=true
+
+	-- drag support
+	do
+		local dragging=false
+		local dragInput=nil
+		local dragStart=nil
+		local startPos=nil
+
+		local function update(input)
+			local delta=input.Position - dragStart
+			bg.Position=UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+
+		bg.InputBegan:Connect(function(input)
+			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+				dragging=true
+				dragStart=input.Position
+				startPos=bg.Position
+				input.Changed:Connect(function()
+					if input.UserInputState==Enum.UserInputState.End then
+						dragging=false
+					end
+				end)
+			end
+		end)
+
+		bg.InputChanged:Connect(function(input)
+			if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
+				dragInput=input
+			end
+		end)
+
+		UserInput.InputChanged:Connect(function(input)
+			if input==dragInput and dragging then
+				update(input)
+			end
+		end)
+	end
+
+	local header=createLabel(title,bg,UDim2.new(1,0,0,40),UDim2.new(0,0,0,0),Enum.Font.Code,true)
+	header.TextColor3=Color3.new(0,0,0)
+	header.BackgroundTransparency=1
+	header.TextStrokeTransparency=0.8
+
+	local container=Instance.new("ScrollingFrame",bg)
+	container.Size=UDim2.new(1,0,1,-40)
+	container.Position=UDim2.new(0,0,0,40)
+	container.BackgroundTransparency=1
+	container.ScrollBarThickness=5
+	container.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	container.CanvasSize=UDim2.new(0,0,0,0)
+	container.VerticalScrollBarInset = Enum.ScrollBarInset.Always
+	container.LayoutOrder=0
+
+	local layout=Instance.new("UIListLayout",container)
+	layout.SortOrder=Enum.SortOrder.LayoutOrder
+	layout.Padding=UDim.new(0,8)
+
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		container.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+	end)
+
+	local win={}
+
+	function win:AddLabel(text)
+		local l=createLabel(text,container,UDim2.new(1,0,0,24),nil,Enum.Font.Code,true)
+		return l
+	end
+
+	function win:AddButton(text,callback)
+		local btn=Instance.new("TextButton",container)
+		btn.Size=UDim2.new(1,0,0,30)
+		btn.BackgroundColor3=Color3.new(0.15,0.15,0.15)
+		btn.TextColor3=Color3.new(1,1,1)
+		btn.Font=Enum.Font.Code
+		btn.TextScaled=true
+		btn.Text=text or "Button"
+		btn.AutoButtonColor=true
+		btn.BorderSizePixel=0
+		btn.BackgroundTransparency=0.1
+		btn.ClipsDescendants=true
+		btn.LayoutOrder=1
+
+		btn.MouseEnter:Connect(function()
+			tween(btn,{BackgroundTransparency=0},0.15)
+		end)
+		btn.MouseLeave:Connect(function()
+			tween(btn,{BackgroundTransparency=0.1},0.15)
+		end)
+		btn.MouseButton1Click:Connect(function()
+			if callback then
+				callback()
+			end
+		end)
+
+		return btn
+	end
+
+	function win:AddToggle(text,default,callback)
+		local frame=Instance.new("Frame",container)
+		frame.Size=UDim2.new(1,0,0,30)
+		frame.BackgroundTransparency=1
+
+		local lbl=createLabel(text,frame,UDim2.new(0.8,0,1,0),UDim2.new(0,10,0,0),Enum.Font.Code,true)
+		lbl.TextXAlignment=Enum.TextXAlignment.Left
+
+		local toggle=Instance.new("TextButton",frame)
+		toggle.Size=UDim2.new(0,30,0,30)
+		toggle.Position=UDim2.new(1,-40,0,0)
+		toggle.Text=""
+		toggle.BackgroundColor3=default and Color3.fromRGB(80, 220, 100) or Color3.fromRGB(180,180,180)
+		toggle.AutoButtonColor=false
+		toggle.BorderSizePixel=0
+		toggle.LayoutOrder=1
+
+		local state=default or false
+		local function update()
+			toggle.BackgroundColor3=state and Color3.fromRGB(80, 220, 100) or Color3.fromRGB(180,180,180)
+		end
+		update()
+
+		toggle.MouseButton1Click:Connect(function()
+			state=not state
+			update()
+			if callback then callback(state) end
+		end)
+
+		return frame
+	end
+
+	function win:AddSlider(text,min,max,default,callback)
+		local frame=Instance.new("Frame",container)
+		frame.Size=UDim2.new(1,0,0,40)
+		frame.BackgroundTransparency=1
+
+		local lbl=createLabel(text,frame,UDim2.new(1,0,0,18),UDim2.new(0,10,0,0),Enum.Font.Code,true)
+		lbl.TextXAlignment=Enum.TextXAlignment.Left
+
+		local barBG=Instance.new("Frame",frame)
+		barBG.Size=UDim2.new(1,-20,0,10)
+		barBG.Position=UDim2.new(0,10,0,24)
+		barBG.BackgroundColor3=Color3.fromRGB(200,200,200)
+		barBG.BorderSizePixel=0
+		barBG.ClipsDescendants=true
+		barBG.AnchorPoint=Vector2.new(0,0)
+
+		local barFill=Instance.new("Frame",barBG)
+		barFill.Size=UDim2.new((default-min)/(max-min),0,1,0)
+		barFill.BackgroundColor3=Color3.fromRGB(80, 220, 100)
+		barFill.BorderSizePixel=0
+
+		local dragging=false
+
+		local function updateFill(x)
+			local rel=math.clamp((x-barBG.AbsolutePosition.X)/barBG.AbsoluteSize.X,0,1)
+			barFill.Size=UDim2.new(rel,0,1,0)
+			local val = min + rel * (max - min)
+			if callback then
+				callback(val)
+			end
+		end
+
+		barBG.InputBegan:Connect(function(input)
+			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+				dragging=true
+				updateFill(input.Position.X)
+			end
+		end)
+
+		barBG.InputEnded:Connect(function(input)
+			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+				dragging=false
+			end
+		end)
+
+		UserInput.InputChanged:Connect(function(input)
+			if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+				updateFill(input.Position.X)
+			end
+		end)
+
+		return frame
+	end
+
+	function win:AddTextBox(placeholder,default,callback)
+		local box=Instance.new("TextBox",container)
+		box.Size=UDim2.new(1,0,0,30)
+		box.BackgroundColor3=Color3.new(1,1,1)
+		box.TextColor3=Color3.new(0,0,0)
+		box.Font=Enum.Font.Code
+		box.TextScaled=true
+		box.Text=default or ""
+		box.PlaceholderText=placeholder or ""
+		box.ClearTextOnFocus=false
+		box.BorderSizePixel=0
+		box.LayoutOrder=1
+
+		box.FocusLost:Connect(function(enterPressed)
+			if enterPressed and callback then
+				callback(box.Text)
+			end
+		end)
+
+		return box
+	end
+
+	function win:AddDropdown(title,items,callback)
+		local frame=Instance.new("Frame",container)
+		frame.Size=UDim2.new(1,0,0,30)
+		frame.BackgroundTransparency=1
+
+		local header=createLabel(title,frame,UDim2.new(1,0,0,30),nil,Enum.Font.Code,true)
+		header.TextXAlignment=Enum.TextXAlignment.Left
+		header.BackgroundColor3=Color3.new(0.9,0.9,0.9)
+		header.BackgroundTransparency=0.1
+		header.ClipsDescendants=true
+		header.TextColor3=Color3.new(0,0,0)
+		header.BorderSizePixel=0
+		header.LayoutOrder=1
+
+		local expanded=false
+		local listFrame=nil
+
+		header.InputBegan:Connect(function(input)
+			if input.UserInputType==Enum.UserInputType.MouseButton1 then
+				if expanded then
+					if listFrame then listFrame:Destroy() end
+					expanded=false
+					frame.Size=UDim2.new(1,0,0,30)
+				else
+					expanded=true
+					listFrame=Instance.new("Frame",frame)
+					listFrame.Size=UDim2.new(1,0,0,#items*30)
+					listFrame.Position=UDim2.new(0,0,0,30)
+					listFrame.BackgroundColor3=Color3.new(1,1,1)
+					listFrame.BorderSizePixel=0
+					listFrame.ClipsDescendants=true
+					listFrame.LayoutOrder=2
+
+					local layout=Instance.new("UIListLayout",listFrame)
+					layout.SortOrder=Enum.SortOrder.LayoutOrder
+					layout.Padding=UDim.new(0,2)
+
+					for i,v in ipairs(items)do
+						local item=createLabel(tostring(v),listFrame,UDim2.new(1,0,0,30),nil,Enum.Font.Code,true)
+						item.BackgroundColor3=Color3.new(0.85,0.85,0.85)
+						item.TextColor3=Color3.new(0,0,0)
+						item.BorderSizePixel=0
+						item.LayoutOrder=i
+						item.TextXAlignment=Enum.TextXAlignment.Left
+						item.ClipsDescendants=true
+						item.MouseEnter:Connect(function()
+							item.BackgroundColor3=Color3.new(0.75,0.75,0.75)
+						end)
+						item.MouseLeave:Connect(function()
+							item.BackgroundColor3=Color3.new(0.85,0.85,0.85)
+						end)
+						item.InputBegan:Connect(function(input)
+							if input.UserInputType==Enum.UserInputType.MouseButton1 then
+								callback(v)
+								if listFrame then listFrame:Destroy() end
+								expanded=false
+								frame.Size=UDim2.new(1,0,0,30)
+							end
+						end)
+					end
+					frame.Size=UDim2.new(1,0,0,30 + #items*30)
+				end
+			end
+		end)
+
+		return frame
+	end
+
+	return win
+end
+
+return Lib
