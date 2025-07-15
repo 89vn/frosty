@@ -1,8 +1,6 @@
 local TS=game:GetService("TweenService")
 local UserInput=game:GetService("UserInputService")
 
-local Lib={}
-
 local function createLabel(text,parent,size,pos,font,scaled)
 	local l=Instance.new("TextLabel")
 	l.BackgroundTransparency=1
@@ -32,7 +30,7 @@ local function fadeOut(gui)
 	task.delay(0.3,function() gui.Visible=false end)
 end
 
-function Lib.new(title)
+local function new(title)
 	local gui=Instance.new("ScreenGui")
 	gui.Name="OracleUILib"
 	gui.IgnoreGuiInset=true
@@ -323,5 +321,3 @@ function Lib.new(title)
 
 	return win
 end
-
-return Lib
