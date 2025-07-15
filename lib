@@ -1,10 +1,32 @@
+-- Modified Dear ReGui with rounded corners + extra animations
+-- Original author: depthso (https://github.com/depthso/Dear-ReGui)
+-- Modifications: rounded UICorner and added tweens on window open/close, hover, clicks
+
 local TS=game:GetService("TweenService")
 local UserInput=game:GetService("UserInputService")
+local RunService=game:GetService("RunService")
+
+local ReGui = {}
+ReGui.__index = ReGui
+
+local function applyCorner(inst, radius)
+	local c = Instance.new("UICorner", inst)
+	c.CornerRadius = radius or UDim.new(0,8)
+	return c
+end
+
+local function tween(inst, props, time, style, dir, callback)
+	local info = TweenInfo.new(time or 0.3, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out)
+	local tw = TS:Create(inst, info, props)
+	if callback then tw.Completed:Connect(callback) end
+	tw:Play()
+	return tw
+end
 
 local function createLabel(text,parent,size,pos,font,scaled,color,align)
 	local l=Instance.new("TextLabel")
 	l.BackgroundTransparency=1
-	l.TextColor3=color or Color3.fromRGB(220,220,220)
+	l.TextColor3=color or Color3.fromRGB(230,230,230)
 	l.Font=font or Enum.Font.Code
 	l.TextScaled=scaled or false
 	l.TextWrapped=true
@@ -16,349 +38,407 @@ local function createLabel(text,parent,size,pos,font,scaled,color,align)
 	return l
 end
 
-local function tween(obj,props,time)
-	TS:Create(obj,TweenInfo.new(time or 0.3,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),props):Play()
+local function createButton(text,parent,size,pos,font,scaled)
+	local btn = Instance.new("TextButton")
+	btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	btn.TextColor3 = Color3.fromRGB(230,230,230)
+	btn.BorderSizePixel = 0
+	btn.AutoButtonColor = false
+	btn.Font = font or Enum.Font.Code
+	btn.TextScaled = scaled or true
+	btn.Text = text or "Button"
+	btn.Size = size or UDim2.new(1,0,0,30)
+	btn.Position = pos or UDim2.new(0,0,0,0)
+	applyCorner(btn, UDim.new(0,8))
+	btn.Parent = parent
+
+	-- Hover animation
+	btn.MouseEnter:Connect(function()
+		tween(btn, {BackgroundColor3 = Color3.fromRGB(65,65,65)}, 0.15)
+	end)
+	btn.MouseLeave:Connect(function()
+		tween(btn, {BackgroundColor3 = Color3.fromRGB(40,40,40)}, 0.15)
+	end)
+
+	return btn
 end
 
-local function fadeIn(gui)
-	gui.Visible=true
-	gui.BackgroundTransparency=1
-	tween(gui,{BackgroundTransparency=0.3},0.4)
-end
-
-local function fadeOut(gui)
-	tween(gui,{BackgroundTransparency=1},0.3)
-	task.delay(0.3,function() gui.Visible=false end)
-end
-
-local function applyCorner(inst, radius)
-	local c = Instance.new("UICorner", inst)
-	c.CornerRadius = radius or UDim.new(0,10)
-	return c
-end
-
-local function applyStroke(inst,color,thick,transp)
-	local s = Instance.new("UIStroke", inst)
-	s.Color = color or Color3.fromRGB(100,100,100)
-	s.Thickness = thick or 1
-	s.Transparency = transp or 0.5
-	return s
-end
-
-local function new(title)
-	local gui=Instance.new("ScreenGui")
-	gui.Name="OracleUILib"
-	gui.IgnoreGuiInset=true
-	gui.ResetOnSpawn=false
-	gui.Parent=game:GetService("CoreGui")
-
-	local bg=Instance.new("Frame",gui)
-	bg.Size=UDim2.new(0,350,0,450)
-	bg.Position=UDim2.new(0.5,0,0.5,0)
-	bg.AnchorPoint=Vector2.new(0.5,0.5)
-	bg.BackgroundColor3=Color3.fromRGB(30,30,30)
-	bg.BorderSizePixel=0
-	bg.ClipsDescendants=true
-	applyCorner(bg, UDim.new(0,14))
-	applyStroke(bg, Color3.fromRGB(80,80,80),1,0.3)
-
-	-- drag support
+function ReGui.new(title)
+	local self=setmetatable({}, ReGui)
+	
+	self.Gui=Instance.new("ScreenGui")
+	self.Gui.Name = "ReGui"
+	self.Gui.ResetOnSpawn = false
+	self.Gui.IgnoreGuiInset = true
+	self.Gui.Parent = game:GetService("CoreGui")
+	
+	local main = Instance.new("Frame")
+	main.Name = "Main"
+	main.Size = UDim2.new(0, 400, 0, 500)
+	main.Position = UDim2.new(0.5, 0, 0.5, 0)
+	main.AnchorPoint = Vector2.new(0.5,0.5)
+	main.BackgroundColor3 = Color3.fromRGB(35,35,35)
+	main.BorderSizePixel = 0
+	applyCorner(main, UDim.new(0,14))
+	main.Parent = self.Gui
+	self.Main = main
+	
+	-- Add stroke for subtle outline
+	local stroke = Instance.new("UIStroke", main)
+	stroke.Color = Color3.fromRGB(70,70,70)
+	stroke.Thickness = 1
+	stroke.Transparency = 0.3
+	
+	-- Animate open
+	main.Size = UDim2.new(0, 0, 0, 0)
+	tween(main, {Size = UDim2.new(0, 400, 0, 500)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	
+	-- Header bar
+	local header = Instance.new("Frame", main)
+	header.Name = "Header"
+	header.Size = UDim2.new(1, 0, 0, 44)
+	header.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+	header.BorderSizePixel = 0
+	applyCorner(header, UDim.new(0,14))
+	header.ClipsDescendants = true
+	
+	local headerStroke = Instance.new("UIStroke", header)
+	headerStroke.Color = Color3.fromRGB(90,90,90)
+	headerStroke.Thickness = 1
+	headerStroke.Transparency = 0.4
+	
+	-- Title label centered
+	local titleLabel = Instance.new("TextLabel", header)
+	titleLabel.Size = UDim2.new(1, -20, 1, 0)
+	titleLabel.Position = UDim2.new(0, 10, 0, 0)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.TextColor3 = Color3.fromRGB(230,230,230)
+	titleLabel.Font = Enum.Font.Code
+	titleLabel.TextScaled = true
+	titleLabel.Text = title or "ReGui"
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Center
+	titleLabel.TextYAlignment = Enum.TextYAlignment.Center
+	
+	-- Drag support
 	do
-		local dragging=false
-		local dragInput=nil
-		local dragStart=nil
-		local startPos=nil
-
+		local dragging = false
+		local dragInput = nil
+		local dragStart = nil
+		local startPos = nil
+	
 		local function update(input)
-			local delta=input.Position - dragStart
-			bg.Position=UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+			local delta = input.Position - dragStart
+			self.Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 		end
-
-		bg.InputBegan:Connect(function(input)
-			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-				dragging=true
-				dragStart=input.Position
-				startPos=bg.Position
+	
+		header.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				dragging = true
+				dragStart = input.Position
+				startPos = self.Main.Position
+	
 				input.Changed:Connect(function()
-					if input.UserInputState==Enum.UserInputState.End then
-						dragging=false
+					if input.UserInputState == Enum.UserInputState.End then
+						dragging = false
 					end
 				end)
 			end
 		end)
-
-		bg.InputChanged:Connect(function(input)
-			if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then
-				dragInput=input
+	
+		header.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+				dragInput = input
 			end
 		end)
-
+	
 		UserInput.InputChanged:Connect(function(input)
-			if input==dragInput and dragging then
+			if input == dragInput and dragging then
 				update(input)
 			end
 		end)
 	end
-
-	local header=createLabel(title,bg,UDim2.new(1,0,0,40),UDim2.new(0,0,0,0),Enum.Font.Code,true,Color3.fromRGB(200,200,200),Enum.TextXAlignment.Center)
-	header.BackgroundTransparency=1
-	header.TextStrokeTransparency=0.7
-
-	local container=Instance.new("ScrollingFrame",bg)
-	container.Size=UDim2.new(1,0,1,-40)
-	container.Position=UDim2.new(0,0,0,40)
-	container.BackgroundTransparency=1
-	container.ScrollBarThickness=6
-	container.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	container.CanvasSize=UDim2.new(0,0,0,0)
+	
+	-- Content container with layout
+	local container = Instance.new("ScrollingFrame", main)
+	container.Name = "Container"
+	container.Position = UDim2.new(0, 0, 0, 44)
+	container.Size = UDim2.new(1, 0, 1, -44)
+	container.BackgroundTransparency = 1
+	container.ScrollBarThickness = 6
 	container.VerticalScrollBarInset = Enum.ScrollBarInset.Always
-	container.LayoutOrder=0
-
-	local layout=Instance.new("UIListLayout",container)
-	layout.SortOrder=Enum.SortOrder.LayoutOrder
-	layout.Padding=UDim.new(0,8)
-
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		container.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 12)
+	container.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	
+	local listLayout = Instance.new("UIListLayout", container)
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Padding = UDim.new(0, 10)
+	listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		container.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
 	end)
-
-	local win={}
-
-	function win:AddLabel(text)
-		local l=createLabel(text,container,UDim2.new(1,0,0,24),nil,Enum.Font.Code,true,Color3.fromRGB(200,200,200))
-		l.TextXAlignment=Enum.TextXAlignment.Center
-		return l
-	end
-
-	function win:AddButton(text,callback)
-		local btn=Instance.new("TextButton",container)
-		btn.Size=UDim2.new(1,0,0,34)
-		btn.BackgroundColor3=Color3.fromRGB(40,40,40)
-		btn.TextColor3=Color3.fromRGB(220,220,220)
-		btn.Font=Enum.Font.Code
-		btn.TextScaled=true
-		btn.Text=text or "Button"
-		btn.AutoButtonColor=false
-		btn.BorderSizePixel=0
-		btn.ClipsDescendants=true
-		btn.LayoutOrder=1
-		applyCorner(btn, UDim.new(0,10))
-		applyStroke(btn, Color3.fromRGB(80,80,80),1,0.4)
-
-		btn.MouseEnter:Connect(function()
-			tween(btn,{BackgroundColor3=Color3.fromRGB(60,60,60)},0.2)
-		end)
-		btn.MouseLeave:Connect(function()
-			tween(btn,{BackgroundColor3=Color3.fromRGB(40,40,40)},0.2)
-		end)
-		btn.MouseButton1Click:Connect(function()
-			if callback then
-				callback()
-			end
-		end)
-
-		return btn
-	end
-
-	function win:AddToggle(text,default,callback)
-		local frame=Instance.new("Frame",container)
-		frame.Size=UDim2.new(1,0,0,34)
-		frame.BackgroundTransparency=1
-
-		local lbl=createLabel(text,frame,UDim2.new(0.8,0,1,0),UDim2.new(0,14,0,0),Enum.Font.Code,true,Color3.fromRGB(220,220,220))
-		lbl.TextXAlignment=Enum.TextXAlignment.Left
-
-		local toggle=Instance.new("TextButton",frame)
-		toggle.Size=UDim2.new(0,34,0,34)
-		toggle.Position=UDim2.new(1,-48,0,0)
-		toggle.Text=""
-		toggle.BackgroundColor3=default and Color3.fromRGB(70, 210, 120) or Color3.fromRGB(90,90,90)
-		toggle.AutoButtonColor=false
-		toggle.BorderSizePixel=0
-		applyCorner(toggle, UDim.new(0,10))
-		applyStroke(toggle, Color3.fromRGB(70,70,70),1,0.5)
-
-		local state=default or false
-		local function update()
-			toggle.BackgroundColor3=state and Color3.fromRGB(70, 210, 120) or Color3.fromRGB(90,90,90)
-		end
-		update()
-
-		toggle.MouseEnter:Connect(function()
-			tween(toggle,{BackgroundColor3=state and Color3.fromRGB(90,255,150) or Color3.fromRGB(110,110,110)},0.15)
-		end)
-		toggle.MouseLeave:Connect(function()
-			tween(toggle,{BackgroundColor3=state and Color3.fromRGB(70,210,120) or Color3.fromRGB(90,90,90)},0.15)
-		end)
-
-		toggle.MouseButton1Click:Connect(function()
-			state=not state
-			update()
-			if callback then callback(state) end
-		end)
-
-		return frame
-	end
-
-	function win:AddSlider(text,min,max,default,callback)
-		local frame=Instance.new("Frame",container)
-		frame.Size=UDim2.new(1,0,0,44)
-		frame.BackgroundTransparency=1
-
-		local lbl=createLabel(text,frame,UDim2.new(1,0,0,18),UDim2.new(0,14,0,0),Enum.Font.Code,true,Color3.fromRGB(220,220,220))
-		lbl.TextXAlignment=Enum.TextXAlignment.Left
-
-		local barBG=Instance.new("Frame",frame)
-		barBG.Size=UDim2.new(1,-28,0,12)
-		barBG.Position=UDim2.new(0,14,0,26)
-		barBG.BackgroundColor3=Color3.fromRGB(70,70,70)
-		barBG.BorderSizePixel=0
-		barBG.ClipsDescendants=true
-		barBG.AnchorPoint=Vector2.new(0,0)
-		applyCorner(barBG, UDim.new(0,8))
-		applyStroke(barBG, Color3.fromRGB(50,50,50),1,0.5)
-
-		local barFill=Instance.new("Frame",barBG)
-		barFill.Size=UDim2.new((default-min)/(max-min),0,1,0)
-		barFill.BackgroundColor3=Color3.fromRGB(70, 210, 120)
-		barFill.BorderSizePixel=0
-		applyCorner(barFill, UDim.new(0,8))
-
-		local dragging=false
-
-		local function updateFill(x)
-			local rel=math.clamp((x-barBG.AbsolutePosition.X)/barBG.AbsoluteSize.X,0,1)
-			barFill.Size=UDim2.new(rel,0,1,0)
-			local val = min + rel * (max - min)
-			if callback then
-				callback(val)
-			end
-		end
-
-		barBG.InputBegan:Connect(function(input)
-			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-				dragging=true
-				updateFill(input.Position.X)
-			end
-		end)
-
-		barBG.InputEnded:Connect(function(input)
-			if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
-				dragging=false
-			end
-		end)
-
-		UserInput.InputChanged:Connect(function(input)
-			if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
-				updateFill(input.Position.X)
-			end
-		end)
-
-		return frame
-	end
-
-	function win:AddTextBox(placeholder,default,callback)
-		local box=Instance.new("TextBox",container)
-		box.Size=UDim2.new(1,0,0,34)
-		box.BackgroundColor3=Color3.fromRGB(45,45,45)
-		box.TextColor3=Color3.fromRGB(220,220,220)
-		box.Font=Enum.Font.Code
-		box.TextScaled=true
-		box.Text=default or ""
-		box.PlaceholderText=placeholder or ""
-		box.ClearTextOnFocus=false
-		box.BorderSizePixel=0
-		applyCorner(box, UDim.new(0,10))
-		applyStroke(box, Color3.fromRGB(50,50,50),1,0.5)
-		box.LayoutOrder=1
-
-		box.Focused:Connect(function()
-			tween(box,{BackgroundColor3=Color3.fromRGB(65,65,65)},0.2)
-		end)
-		box.FocusLost:Connect(function(enterPressed)
-			tween(box,{BackgroundColor3=Color3.fromRGB(45,45,45)},0.2)
-			if enterPressed and callback then
-				callback(box.Text)
-			end
-		end)
-
-		return box
-	end
-
-	function win:AddDropdown(title,items,callback)
-		local frame=Instance.new("Frame",container)
-		frame.Size=UDim2.new(1,0,0,34)
-		frame.BackgroundTransparency=1
-
-		local header=createLabel(title,frame,UDim2.new(1,0,0,34),nil,Enum.Font.Code,true,Color3.fromRGB(220,220,220))
-		header.TextXAlignment=Enum.TextXAlignment.Left
-		header.BackgroundColor3=Color3.fromRGB(45,45,45)
-		header.BackgroundTransparency=0
-		header.ClipsDescendants=true
-		header.BorderSizePixel=0
-		applyCorner(header, UDim.new(0,10))
-		applyStroke(header, Color3.fromRGB(50,50,50),1,0.5)
-		header.LayoutOrder=1
-
-		local expanded=false
-		local listFrame=nil
-
-		header.InputBegan:Connect(function(input)
-			if input.UserInputType==Enum.UserInputType.MouseButton1 then
-				if expanded then
-					if listFrame then listFrame:Destroy() end
-					expanded=false
-					frame.Size=UDim2.new(1,0,0,34)
-				else
-					expanded=true
-					listFrame=Instance.new("Frame",frame)
-					listFrame.Size=UDim2.new(1,0,0,#items*32)
-					listFrame.Position=UDim2.new(0,0,0,34)
-					listFrame.BackgroundColor3=Color3.fromRGB(40,40,40)
-					listFrame.BorderSizePixel=0
-					listFrame.ClipsDescendants=true
-					listFrame.LayoutOrder=2
-					applyCorner(listFrame, UDim.new(0,10))
-					applyStroke(listFrame, Color3.fromRGB(50,50,50),1,0.4)
-
-					local layout=Instance.new("UIListLayout",listFrame)
-					layout.SortOrder=Enum.SortOrder.LayoutOrder
-					layout.Padding=UDim.new(0,4)
-
-					for i,v in ipairs(items)do
-						local item=createLabel(tostring(v),listFrame,UDim2.new(1,0,0,30),nil,Enum.Font.Code,true,Color3.fromRGB(220,220,220))
-						item.BackgroundColor3=Color3.fromRGB(60,60,60)
-						item.TextColor3=Color3.fromRGB(230,230,230)
-						item.BorderSizePixel=0
-						item.LayoutOrder=i
-						item.TextXAlignment=Enum.TextXAlignment.Left
-						item.ClipsDescendants=true
-						applyCorner(item, UDim.new(0,8))
-						item.MouseEnter:Connect(function()
-							tween(item,{BackgroundColor3=Color3.fromRGB(90,90,90)},0.15)
-						end)
-						item.MouseLeave:Connect(function()
-							tween(item,{BackgroundColor3=Color3.fromRGB(60,60,60)},0.15)
-						end)
-						item.InputBegan:Connect(function(input)
-							if input.UserInputType==Enum.UserInputType.MouseButton1 then
-								callback(v)
-								if listFrame then listFrame:Destroy() end
-								expanded=false
-								frame.Size=UDim2.new(1,0,0,34)
-							end
-						end)
-					end
-					frame.Size=UDim2.new(1,0,0,34 + #items*32)
-				end
-			end
-		end)
-
-		return frame
-	end
-
-	return win
+	
+	self.Container = container
+	
+	return self
 end
 
--- create UI immediately for executor usage:
+function ReGui:AddLabel(text)
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, 0, 0, 25)
+	label.Font = Enum.Font.Code
+	label.TextScaled = true
+	label.Text = text or ""
+	label.TextColor3 = Color3.fromRGB(220,220,220)
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = self.Container
+	return label
+end
 
+function ReGui:AddButton(text, callback)
+	local btn = createButton(text, self.Container, UDim2.new(1, 0, 0, 34))
+	btn.LayoutOrder = 1
+	
+	btn.MouseButton1Click:Connect(function()
+		-- Click animation: quick scale down and back
+		tween(btn, {Size = UDim2.new(1, 0, 0, 30)}, 0.1)
+		task.delay(0.1, function()
+			tween(btn, {Size = UDim2.new(1, 0, 0, 34)}, 0.1)
+		end)
+		if callback then callback() end
+	end)
+	return btn
+end
+
+function ReGui:AddToggle(text, default, callback)
+	local frame = Instance.new("Frame", self.Container)
+	frame.BackgroundTransparency = 1
+	frame.Size = UDim2.new(1, 0, 0, 34)
+	frame.LayoutOrder = 1
+	
+	local label = Instance.new("TextLabel", frame)
+	label.Size = UDim2.new(0.8, 0, 1, 0)
+	label.Position = UDim2.new(0, 14, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.Code
+	label.TextScaled = true
+	label.Text = text or ""
+	label.TextColor3 = Color3.fromRGB(220,220,220)
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	
+	local toggle = Instance.new("TextButton", frame)
+	toggle.Size = UDim2.new(0, 34, 0, 34)
+	toggle.Position = UDim2.new(1, -48, 0, 0)
+	toggle.BackgroundColor3 = default and Color3.fromRGB(70, 210, 120) or Color3.fromRGB(90, 90, 90)
+	toggle.BorderSizePixel = 0
+	toggle.AutoButtonColor = false
+	applyCorner(toggle, UDim.new(0, 10))
+	toggle.LayoutOrder = 1
+	
+	toggle.MouseEnter:Connect(function()
+		tween(toggle, {BackgroundColor3 = default and Color3.fromRGB(90, 255, 150) or Color3.fromRGB(110, 110, 110)}, 0.15)
+	end)
+	toggle.MouseLeave:Connect(function()
+		tween(toggle, {BackgroundColor3 = default and Color3.fromRGB(70, 210, 120) or Color3.fromRGB(90, 90, 90)}, 0.15)
+	end)
+	
+	local state = default or false
+	local function update()
+		toggle.BackgroundColor3 = state and Color3.fromRGB(70, 210, 120) or Color3.fromRGB(90, 90, 90)
+	end
+	
+	toggle.MouseButton1Click:Connect(function()
+		state = not state
+		update()
+		if callback then callback(state) end
+		
+		-- quick click scale animation
+		tween(toggle, {Size = UDim2.new(0, 28, 0, 28)}, 0.1)
+		task.delay(0.1, function()
+			tween(toggle, {Size = UDim2.new(0, 34, 0, 34)}, 0.1)
+		end)
+	end)
+	update()
+	
+	return frame
+end
+
+function ReGui:AddSlider(text, min, max, default, callback)
+	local frame = Instance.new("Frame", self.Container)
+	frame.Size = UDim2.new(1, 0, 0, 44)
+	frame.BackgroundTransparency = 1
+	frame.LayoutOrder = 1
+	
+	local label = Instance.new("TextLabel", frame)
+	label.Size = UDim2.new(1, 0, 0, 18)
+	label.Position = UDim2.new(0, 14, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.Code
+	label.TextScaled = true
+	label.Text = text or ""
+	label.TextColor3 = Color3.fromRGB(220, 220, 220)
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	
+	local barBG = Instance.new("Frame", frame)
+	barBG.Size = UDim2.new(1, -28, 0, 12)
+	barBG.Position = UDim2.new(0, 14, 0, 26)
+	barBG.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	barBG.BorderSizePixel = 0
+	applyCorner(barBG, UDim.new(0, 8))
+	
+	local barFill = Instance.new("Frame", barBG)
+	barFill.BackgroundColor3 = Color3.fromRGB(70, 210, 120)
+	barFill.BorderSizePixel = 0
+	applyCorner(barFill, UDim.new(0, 8))
+	
+	local dragging = false
+	
+	local function updateFill(x)
+		local rel = math.clamp((x - barBG.AbsolutePosition.X) / barBG.AbsoluteSize.X, 0, 1)
+		barFill.Size = UDim2.new(rel, 0, 1, 0)
+		local val = min + rel * (max - min)
+		if callback then
+			callback(val)
+		end
+	end
+	
+	barBG.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			updateFill(input.Position.X)
+		end
+	end)
+	barBG.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+	UserInput.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			updateFill(input.Position.X)
+		end
+	end)
+	
+	-- Set default fill size
+	barFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+	
+	return frame
+end
+
+function ReGui:AddTextBox(placeholder, default, callback)
+	local box = Instance.new("TextBox", self.Container)
+	box.Size = UDim2.new(1, 0, 0, 34)
+	box.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+	box.TextColor3 = Color3.fromRGB(220, 220, 220)
+	box.Font = Enum.Font.Code
+	box.TextScaled = true
+	box.Text = default or ""
+	box.PlaceholderText = placeholder or ""
+	box.ClearTextOnFocus = false
+	box.BorderSizePixel = 0
+	applyCorner(box, UDim.new(0, 10))
+	box.LayoutOrder = 1
+	
+	box.Focused:Connect(function()
+		tween(box, {BackgroundColor3 = Color3.fromRGB(65, 65, 65)}, 0.2)
+	end)
+	box.FocusLost:Connect(function(enterPressed)
+		tween(box, {BackgroundColor3 = Color3.fromRGB(45, 45, 45)}, 0.2)
+		if enterPressed and callback then
+			callback(box.Text)
+		end
+	end)
+	return box
+end
+
+function ReGui:AddDropdown(title, items, callback)
+	local frame = Instance.new("Frame", self.Container)
+	frame.Size = UDim2.new(1, 0, 0, 34)
+	frame.BackgroundTransparency = 1
+	frame.LayoutOrder = 1
+	
+	local header = Instance.new("TextLabel", frame)
+	header.Size = UDim2.new(1, 0, 1, 0)
+	header.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+	header.TextColor3 = Color3.fromRGB(220, 220, 220)
+	header.Font = Enum.Font.Code
+	header.TextScaled = true
+	header.Text = title or ""
+	header.TextXAlignment = Enum.TextXAlignment.Left
+	header.BorderSizePixel = 0
+	applyCorner(header, UDim.new(0, 10))
+	
+	local expanded = false
+	local listFrame = nil
+	
+	local function closeDropdown()
+		if listFrame then
+			tween(listFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In, function()
+				if listFrame then listFrame:Destroy() end
+			end)
+			expanded = false
+			frame.Size = UDim2.new(1, 0, 0, 34)
+		end
+	end
+	
+	header.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			if expanded then
+				closeDropdown()
+			else
+				expanded = true
+				listFrame = Instance.new("Frame", frame)
+				listFrame.Size = UDim2.new(1, 0, 0, 0)
+				listFrame.Position = UDim2.new(0, 0, 0, 34)
+				listFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+				listFrame.BorderSizePixel = 0
+				applyCorner(listFrame, UDim.new(0, 10))
+				
+				local layout = Instance.new("UIListLayout", listFrame)
+				layout.SortOrder = Enum.SortOrder.LayoutOrder
+				layout.Padding = UDim.new(0, 4)
+				
+				for i, v in ipairs(items) do
+					local item = Instance.new("TextLabel", listFrame)
+					item.Size = UDim2.new(1, 0, 0, 30)
+					item.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+					item.TextColor3 = Color3.fromRGB(230, 230, 230)
+					item.Font = Enum.Font.Code
+					item.TextScaled = true
+					item.Text = tostring(v)
+					item.TextXAlignment = Enum.TextXAlignment.Left
+					item.BorderSizePixel = 0
+					applyCorner(item, UDim.new(0, 8))
+					item.LayoutOrder = i
+					
+					item.MouseEnter:Connect(function()
+						tween(item, {BackgroundColor3 = Color3.fromRGB(90, 90, 90)}, 0.15)
+					end)
+					item.MouseLeave:Connect(function()
+						tween(item, {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}, 0.15)
+					end)
+					item.InputBegan:Connect(function(input)
+						if input.UserInputType == Enum.UserInputType.MouseButton1 then
+							if callback then callback(v) end
+							closeDropdown()
+						end
+					end)
+				end
+				
+				-- Animate dropdown open
+				tween(listFrame, {Size = UDim2.new(1, 0, 0, #items * 32)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+				frame.Size = UDim2.new(1, 0, 0, 34 + #items * 32)
+			end
+		end
+	end)
+	
+	return frame
+end
+
+function ReGui:Destroy()
+	-- Animate close before destroy
+	tween(self.Main, {Size = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In, function()
+		self.Gui:Destroy()
+	end)
+end
+
+-- return the ReGui module
+return ReGui
